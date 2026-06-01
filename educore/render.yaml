@@ -3,7 +3,7 @@ services:
   - type: web
     name: educore-api
     runtime: node
-    rootDir: educore/backend
+    rootDir: backend
     buildCommand: npm install
     startCommand: node server.js
     envVars:
@@ -20,7 +20,7 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: FRONTEND_URL
-        value: https://frontend-ten-eta-jssfa4gpix.vercel.app
+        value: https://frontend-one-opal-noxuosmprr.vercel.app
 
   # ─── PostgreSQL Database ───────────────────────────────────────────────────
 databases:
