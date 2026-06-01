@@ -7,8 +7,8 @@ services:
     region: oregon
     rootDir: educore/backend
     dockerCommand: npm ci --omit=dev
-    dockerContext: educore/backend
-    dockerfilePath: ./educore/backend/Dockerfile
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
     autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
