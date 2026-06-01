@@ -2,10 +2,14 @@ services:
   # ─── Backend API (Web Service) ─────────────────────────────────────────────
   - type: web
     name: educore-api
-    runtime: node
+    runtime: docker
+    plan: starter
+    region: oregon
     rootDir: educore/backend
-    buildCommand: npm install
-    startCommand: node server.js
+    dockerCommand: npm ci --omit=dev
+    dockerContext: educore/backend
+    dockerfilePath: ./educore/backend/Dockerfile
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,6 +25,20 @@ services:
         value: 7d
       - key: FRONTEND_URL
         value: https://frontend-one-opal-noxuosmprr.vercel.app
+      - key: AUTH_TYPE
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+  # ─── PostgreSQL Database ───────────────────────────────────────────────────
 
   # ─── PostgreSQL Database ───────────────────────────────────────────────────
 databases:
