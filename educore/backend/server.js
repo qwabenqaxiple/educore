@@ -1,5 +1,7 @@
 // server.js — EduCore SMS API Server
 require('dotenv').config();
+const fs       = require('fs');
+const path     = require('path');
 const express  = require('express');
 const cors     = require('cors');
 const helmet   = require('helmet');
@@ -71,22 +73,58 @@ if (require.main === module) {
     console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
     console.log(`   Health check: http://localhost:${PORT}/health\n`);
 
-    // Startup database migrations for session logging & notifications
+    // Startup database schema and migrations for session logging & notifications
     const { query } = require('./db/pool');
-    query(`
-      CREATE TABLE IF NOT EXISTS login_logs (
-        id          SERIAL PRIMARY KEY,
-        user_id     INT REFERENCES users(id) ON DELETE CASCADE,
-        email       VARCHAR(120) NOT NULL,
-        role        VARCHAR(20) NOT NULL,
-        ip_address  VARCHAR(50),
-        user_agent  TEXT,
-        login_time  TIMESTAMPTZ DEFAULT NOW()
-      )
-    `).then(() => {
-      query('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)').catch(e => console.error(e));
-      query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL').catch(e => console.error(e));
-    }).catch(err => console.error('Error running startup migrations:', err));
+    const schemaFile = path.join(__dirname, 'db', 'schema.sql');
+    const schemaSql = fs.readFileSync(schemaFile, 'utf8');
+
+    async function runMigrations() {
+      // Split into statements
+      const statements = schemaSql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+      console.log(`[Migrations] Found ${statements.length} statements to execute.`);
+
+      for (const statement of statements) {
+        const cleanStmt = statement.split('\n').filter(line => !line.trim().startsWith('--')).join('\n').trim();
+        if (!cleanStmt) continue;
+
+        try {
+          await query(statement);
+        } catch (err) {
+          // If CREATE EXTENSION fails, it might be a permission issue. Let's warn and continue.
+          if (cleanStmt.toUpperCase().startsWith('CREATE EXTENSION')) {
+            console.warn(`[Migrations] WARNING: Failed to create extension: ${err.message}. Continuing...`);
+          } else {
+            console.error(`[Migrations] ERROR executing statement:\n${cleanStmt}\nError: ${err.message}`);
+            throw err;
+          }
+        }
+      }
+
+      console.log('[Migrations] Schema statements completed. Running incremental migrations...');
+
+      await query(`
+        CREATE TABLE IF NOT EXISTS login_logs (
+          id          SERIAL PRIMARY KEY,
+          user_id     INT REFERENCES users(id) ON DELETE CASCADE,
+          email       VARCHAR(120) NOT NULL,
+          role        VARCHAR(20) NOT NULL,
+          ip_address  VARCHAR(50),
+          user_agent  TEXT,
+          login_time  TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      await query('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
+      await query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
+
+      console.log('[Migrations] All startup migrations completed successfully!');
+    }
+
+    runMigrations().catch(err => console.error('Error running startup migrations:', err));
   });
 }
 
