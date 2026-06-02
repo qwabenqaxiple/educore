@@ -11,8 +11,18 @@ const app = express();
 
 // ─── Security ────────────────────────────────────────────────────────────────
 app.use(helmet());
+
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+const frontendOrigin = (() => {
+  try {
+    return new URL(frontendUrl).origin;
+  } catch {
+    return frontendUrl.replace(/\/+$/, '');
+  }
+})();
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: frontendOrigin,
   credentials: true,
 }));
 
