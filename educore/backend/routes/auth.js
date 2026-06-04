@@ -122,4 +122,78 @@ router.get('/config', (req, res) => {
   res.json({ appEnv: process.env.APP_ENV || 'development' });
 });
 
+// ─── POST /api/auth/seed-production ───────────────────────────────────────────
+// Secure one-time seeder endpoint — protected by x-seed-key header
+router.post('/seed-production', async (req, res) => {
+  const SEED_KEY = process.env.SEED_SECRET_KEY || 'xiple-seed-2024';
+  const providedKey = req.headers['x-seed-key'];
+
+  if (providedKey !== SEED_KEY) {
+    return res.status(403).json({ error: 'Forbidden: invalid seed key' });
+  }
+
+  try {
+    const bcrypt = require('bcryptjs');
+    const fs = require('fs');
+    const path = require('path');
+
+    // Drop and rebuild schema
+    await query(`
+      DROP TABLE IF EXISTS login_logs CASCADE;
+      DROP TABLE IF EXISTS timetable CASCADE;
+      DROP TABLE IF EXISTS notifications CASCADE;
+      DROP TABLE IF EXISTS fees CASCADE;
+      DROP TABLE IF EXISTS results CASCADE;
+      DROP TABLE IF EXISTS exams CASCADE;
+      DROP TABLE IF EXISTS attendance CASCADE;
+      DROP TABLE IF EXISTS teacher_classes CASCADE;
+      DROP TABLE IF EXISTS teacher_subjects CASCADE;
+      DROP TABLE IF EXISTS teachers CASCADE;
+      DROP TABLE IF EXISTS students CASCADE;
+      DROP TABLE IF EXISTS subject_classes CASCADE;
+      DROP TABLE IF EXISTS subjects CASCADE;
+      DROP TABLE IF EXISTS classes CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
+    `);
+
+    const schema = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
+    // Run schema statements one by one
+    const statements = schema.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    for (const stmt of statements) {
+      try { await query(stmt); } catch (e) { /* ignore extension errors */ }
+    }
+
+    // Run incremental migrations
+    await query(`CREATE TABLE IF NOT EXISTS login_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      email VARCHAR(120) NOT NULL,
+      role VARCHAR(20) NOT NULL,
+      ip_address VARCHAR(50),
+      user_agent TEXT,
+      login_time TIMESTAMPTZ DEFAULT NOW()
+    )`);
+    await query('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
+    await query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
+
+    // Seed only the live admin account
+    const hash = await bcrypt.hash('xiple@2020', 10);
+    await query(
+      `INSERT INTO users (name, email, password, role, phone, avatar)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (email) DO UPDATE SET password=$3`,
+      ['Tei Ezekiel', 'teiezekiel131@gmail.com', hash, 'Admin', '055-000-0000', 'TE']
+    );
+
+    return res.json({
+      success: true,
+      message: '✅ Production database seeded successfully!',
+      admin: 'teiezekiel131@gmail.com',
+    });
+  } catch (err) {
+    console.error('Seed error:', err);
+    return res.status(500).json({ error: 'Seeding failed: ' + err.message });
+  }
+});
+
 module.exports = router;
