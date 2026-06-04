@@ -1,11 +1,11 @@
-require("dotenv").config();
+require("./loadEnv");
 const bcrypt = require("bcryptjs");
 const { query } = require("./db/pool");
 // createAdmin.js: const pool = require("./config/db");
 
 async function createAdmin() {
     try {
-        const password = "Xiple@2020";
+        const password = "xiple@2020";
         const hashedPassword = await bcrypt.hash(password, 10);
         const email = "teiezekiel131@gmail.com";
         const role = "Admin";

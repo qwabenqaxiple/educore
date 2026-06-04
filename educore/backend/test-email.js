@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('./loadEnv');
 const { sendEmail } = require('./middleware/notify');
 
 async function testMail() {

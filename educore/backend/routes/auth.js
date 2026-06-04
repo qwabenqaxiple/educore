@@ -22,6 +22,13 @@ router.post('/login',
     if (!errs.isEmpty()) return res.status(400).json({ errors: errs.array() });
 
     const { email, password } = req.body;
+
+    // Block demo accounts in production mode
+    const demoEmails = ['admin@educore.edu', 'teacher@educore.edu', 'student@educore.edu', 'parent@educore.edu'];
+    if (process.env.APP_ENV === 'production' && demoEmails.includes(email?.toLowerCase())) {
+      return res.status(401).json({ error: 'Demo accounts are disabled in production mode' });
+    }
+
     const { rows } = await query(
       'SELECT id,name,email,password,role,phone,avatar FROM users WHERE email=$1',
       [email]
@@ -109,5 +116,10 @@ router.post('/forgot-password',
     res.json({ message: 'If an account exists for this email, a reset link has been sent.' });
   }
 );
+
+// ─── GET /api/auth/config ──────────────────────────────────────────────────────
+router.get('/config', (req, res) => {
+  res.json({ appEnv: process.env.APP_ENV || 'development' });
+});
 
 module.exports = router;

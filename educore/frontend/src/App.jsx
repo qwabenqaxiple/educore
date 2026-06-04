@@ -1046,6 +1046,16 @@ function Login({ onLogin }) {
   const [demo, setDemo] = useState(false);
   const [view, setView] = useState("login");
   const [msg, setMsg] = useState("");
+  const [appEnv, setAppEnv] = useState("development");
+
+  useEffect(() => {
+    API.auth.config()
+      .then(res => {
+        if (res && res.appEnv) setAppEnv(res.appEnv);
+      })
+      .catch(err => console.error("Failed to load environment configuration:", err));
+  }, []);
+
   const DEMOS = [
     { r: "Admin", e: "admin@educore.edu", p: "admin123" },
     { r: "Teacher", e: "teacher@educore.edu", p: "teach123" },
@@ -1100,10 +1110,12 @@ function Login({ onLogin }) {
               <button className="bp" style={{ width: "100%", padding: 13, fontSize: 15 }} onClick={go} disabled={loading}>
                 {loading ? <><Spinner /> Signing in…</> : "Sign In →"}
               </button>
-              <div style={{ textAlign: "center", marginTop: 18 }}>
-                <button onClick={() => setDemo(d => !d)} style={{ background: "none", border: "none", color: "#475569", fontSize: 12.5, cursor: "pointer", textDecoration: "underline" }}>{demo ? "Hide" : "Show"} demo accounts</button>
-              </div>
-              {demo && (
+              {appEnv !== "production" && (
+                <div style={{ textAlign: "center", marginTop: 18 }}>
+                  <button onClick={() => setDemo(d => !d)} style={{ background: "none", border: "none", color: "#475569", fontSize: 12.5, cursor: "pointer", textDecoration: "underline" }}>{demo ? "Hide" : "Show"} demo accounts</button>
+                </div>
+              )}
+              {appEnv !== "production" && demo && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
                   {DEMOS.map(d => (
                     <button key={d.r} onClick={() => { setEm(d.e); setPw(d.p); }}

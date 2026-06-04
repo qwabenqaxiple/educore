@@ -1,5 +1,5 @@
 // server.js — EduCore SMS API Server
-require('dotenv').config();
+require('./loadEnv');
 const fs       = require('fs');
 const path     = require('path');
 const express  = require('express');

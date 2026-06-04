@@ -44,6 +44,7 @@ export const auth = {
   login:          (email, password)  => post('/auth/login', { email, password }),
   register:       (data)             => post('/auth/register', data),
   me:             ()                 => get('/auth/me'),
+  config:         ()                 => get('/auth/config'),
   changePassword: (cur, next)        => put('/auth/password', { currentPassword: cur, newPassword: next }),
   forgotPassword: (email)            => post('/auth/forgot-password', { email }),
 };
