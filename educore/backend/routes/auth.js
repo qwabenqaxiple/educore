@@ -23,12 +23,6 @@ router.post('/login',
 
     const { email, password } = req.body;
 
-    // Block demo accounts in production mode
-    const demoEmails = ['admin@educore.edu', 'teacher@educore.edu', 'student@educore.edu', 'parent@educore.edu'];
-    if (process.env.APP_ENV === 'production' && demoEmails.includes(email?.toLowerCase())) {
-      return res.status(401).json({ error: 'Demo accounts are disabled in production mode' });
-    }
-
     const { rows } = await query(
       'SELECT id,name,email,password,role,phone,avatar FROM users WHERE email=$1',
       [email]
@@ -176,18 +170,27 @@ router.post('/seed-production', async (req, res) => {
     await query('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
     await query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
 
-    // Seed only the live admin account
-    const hash = await bcrypt.hash('xiple@2020', 10);
-    await query(
-      `INSERT INTO users (name, email, password, role, phone, avatar)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (email) DO UPDATE SET password=$3`,
-      ['Tei Ezekiel', 'teiezekiel131@gmail.com', hash, 'Admin', '055-000-0000', 'TE']
-    );
+    // Seed live admin + demo accounts
+    const USERS = [
+      { name: 'Tei Ezekiel',      email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Admin',   phone: '055-000-0000', avatar: 'TE' },
+      { name: 'Dr. Ezekiel Tei',  email: 'admin@educore.edu',       password: 'admin123',   role: 'Admin',   phone: '055-000-0001', avatar: 'TE' },
+      { name: 'Mrs. Efua Mensah', email: 'teacher@educore.edu',     password: 'teach123',   role: 'Teacher', phone: '055-000-0002', avatar: 'EM' },
+      { name: 'Kofi Boateng',     email: 'student@educore.edu',     password: 'stud123',    role: 'Student', phone: '055-000-0003', avatar: 'KB' },
+      { name: 'Mrs. Ama Boateng', email: 'parent@educore.edu',      password: 'par123',     role: 'Parent',  phone: '055-000-0004', avatar: 'AB' },
+    ];
+    for (const u of USERS) {
+      const hash = await bcrypt.hash(u.password, 10);
+      await query(
+        `INSERT INTO users (name, email, password, role, phone, avatar)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE SET password=$3`,
+        [u.name, u.email, hash, u.role, u.phone, u.avatar]
+      );
+    }
 
     return res.json({
       success: true,
-      message: '✅ Production database seeded successfully!',
+      message: '✅ Production database seeded successfully! Live admin + demo accounts ready.',
       admin: 'teiezekiel131@gmail.com',
     });
   } catch (err) {
