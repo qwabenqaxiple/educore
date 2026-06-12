@@ -47,6 +47,7 @@ export const auth = {
   config:         ()                 => get('/auth/config'),
   changePassword: (cur, next)        => put('/auth/password', { currentPassword: cur, newPassword: next }),
   forgotPassword: (email)            => post('/auth/forgot-password', { email }),
+  resetPassword:  (token, password)  => post('/auth/reset-password', { token, password }),
 };
 
 // ─── Students ─────────────────────────────────────────────────────────────────

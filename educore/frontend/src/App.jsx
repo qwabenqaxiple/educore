@@ -1041,9 +1041,12 @@ export default function App() {
 function Login({ onLogin }) {
   const [em, setEm] = useState("");
   const [pw, setPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [token, setToken] = useState("");
   const [view, setView] = useState("login");
   const [msg, setMsg] = useState("");
   const [appEnv, setAppEnv] = useState("development");
@@ -1054,6 +1057,13 @@ function Login({ onLogin }) {
         if (res && res.appEnv) setAppEnv(res.appEnv);
       })
       .catch(err => console.error("Failed to load environment configuration:", err));
+
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("resetToken");
+    if (t) {
+      setToken(t);
+      setView("reset");
+    }
   }, []);
 
   const DEMOS = [
@@ -1079,6 +1089,28 @@ function Login({ onLogin }) {
     } catch (e) {
       setErr(e.message || "Failed to request password reset");
     } finally { setLoading(false); }
+  };
+  const doReset = async () => {
+    if (!newPw) return setErr("Please enter a new password");
+    if (newPw.length < 6) return setErr("Password must be at least 6 characters");
+    if (newPw !== confirmPw) return setErr("Passwords do not match");
+
+    setErr(""); setMsg(""); setLoading(true);
+    try {
+      const res = await API.auth.resetPassword(token, newPw);
+      setMsg(res.message || "Password updated successfully!");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => {
+        setView("login");
+        setMsg("");
+        setNewPw("");
+        setConfirmPw("");
+      }, 3000);
+    } catch (e) {
+      setErr(e.message || "Failed to reset password");
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <div style={{ minHeight: "100vh", background: `linear-gradient(rgba(4,6,8,0.82), rgba(4,6,8,0.82)), url(${APSLogo}) center/cover no-repeat fixed`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit',sans-serif", color: "#e2e8f0" }}>
@@ -1126,7 +1158,7 @@ function Login({ onLogin }) {
                 </div>
               )}
             </>
-          ) : (
+          ) : view === "forgot" ? (
             <>
               <div style={{ fontSize: 17, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>Reset Password</div>
               <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 22 }}>Enter your email address and we'll send you a link to reset your password.</div>
@@ -1138,6 +1170,29 @@ function Login({ onLogin }) {
               {msg && <div style={{ background: "#052e16", border: "1px solid #166534", color: "#86efac", padding: "9px 13px", borderRadius: 8, fontSize: 13, marginBottom: 14 }}>✓ {msg}</div>}
               <button className="bp" style={{ width: "100%", padding: 13, fontSize: 15, marginBottom: 18 }} onClick={reset} disabled={loading}>
                 {loading ? <><Spinner /> Sending…</> : "Send Reset Link"}
+              </button>
+              <div style={{ textAlign: "center" }}>
+                <button onClick={() => { setView("login"); setErr(""); setMsg(""); }} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 16 }}>←</span> Back to Login
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>Set New Password</div>
+              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 22 }}>Enter and confirm your new password below.</div>
+              <div style={{ marginBottom: 14 }}>
+                <label className="lbl">New Password</label>
+                <input className="inp" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="••••••••" type="password" />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label className="lbl">Confirm Password</label>
+                <input className="inp" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="••••••••" type="password" onKeyDown={e => e.key === "Enter" && doReset()} />
+              </div>
+              {err && <div style={{ background: "#450a0a", border: "1px solid #991b1b", color: "#fca5a5", padding: "9px 13px", borderRadius: 8, fontSize: 13, marginBottom: 14 }}>{err}</div>}
+              {msg && <div style={{ background: "#052e16", border: "1px solid #166534", color: "#86efac", padding: "9px 13px", borderRadius: 8, fontSize: 13, marginBottom: 14 }}>✓ {msg}</div>}
+              <button className="bp" style={{ width: "100%", padding: 13, fontSize: 15, marginBottom: 18 }} onClick={doReset} disabled={loading}>
+                {loading ? <><Spinner /> Resetting…</> : "Update Password"}
               </button>
               <div style={{ textAlign: "center" }}>
                 <button onClick={() => { setView("login"); setErr(""); setMsg(""); }} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>

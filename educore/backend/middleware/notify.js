@@ -3,15 +3,28 @@ const nodemailer = require('nodemailer');
 const { query } = require('../db/pool');
 
 // ─── Email Transporter ────────────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST  || 'smtp.gmail.com',
-  port:   parseInt(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const transporter = nodemailer.createTransport(
+  process.env.SMTP_HOST && process.env.SMTP_HOST.includes('gmail.com')
+    ? {
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      }
+    : {
+        host:   process.env.SMTP_HOST  || 'smtp.gmail.com',
+        port:   parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_PORT == '465',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        tls: {
+          rejectUnauthorized: false
+        }
+      }
+);
 
 // ─── Send Email ───────────────────────────────────────────────────────────────
 const sendEmail = async ({ to, subject, html, text }) => {

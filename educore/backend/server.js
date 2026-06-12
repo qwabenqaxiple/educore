@@ -84,57 +84,54 @@ if (require.main === module) {
     console.log(`   Health check: http://localhost:${PORT}/health\n`);
 
     // Startup database schema and migrations for session logging & notifications
-    const { query } = require('./db/pool');
+    const { query: liveQuery, demoPool } = require('./db/pool');
     const schemaFile = path.join(__dirname, 'db', 'schema.sql');
     const schemaSql = fs.readFileSync(schemaFile, 'utf8');
 
-    async function runMigrations() {
-      // Split into statements
+    async function runMigrations(queryFn, label) {
       const statements = schemaSql
         .split(';')
         .map(s => s.trim())
         .filter(s => s.length > 0);
 
-      console.log(`[Migrations] Found ${statements.length} statements to execute.`);
+      console.log(`[${label} Migrations] Found ${statements.length} statements.`);
 
       for (const statement of statements) {
         const cleanStmt = statement.split('\n').filter(line => !line.trim().startsWith('--')).join('\n').trim();
         if (!cleanStmt) continue;
-
         try {
-          await query(statement);
+          await queryFn(statement);
         } catch (err) {
-          // If CREATE EXTENSION fails, it might be a permission issue. Let's warn and continue.
           if (cleanStmt.toUpperCase().startsWith('CREATE EXTENSION')) {
-            console.warn(`[Migrations] WARNING: Failed to create extension: ${err.message}. Continuing...`);
+            console.warn(`[${label} Migrations] WARNING: ${err.message}`);
           } else {
-            console.error(`[Migrations] ERROR executing statement:\n${cleanStmt}\nError: ${err.message}`);
+            console.error(`[${label} Migrations] ERROR: ${cleanStmt}\n${err.message}`);
             throw err;
           }
         }
       }
 
-      console.log('[Migrations] Schema statements completed. Running incremental migrations...');
-
-      await query(`
-        CREATE TABLE IF NOT EXISTS login_logs (
-          id          SERIAL PRIMARY KEY,
-          user_id     INT REFERENCES users(id) ON DELETE CASCADE,
-          email       VARCHAR(120) NOT NULL,
-          role        VARCHAR(20) NOT NULL,
-          ip_address  VARCHAR(50),
-          user_agent  TEXT,
-          login_time  TIMESTAMPTZ DEFAULT NOW()
-        )
-      `);
-
-      await query('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
-      await query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
-
-      console.log('[Migrations] All startup migrations completed successfully!');
+      await queryFn(`CREATE TABLE IF NOT EXISTS login_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        email VARCHAR(120) NOT NULL,
+        role VARCHAR(20) NOT NULL,
+        ip_address VARCHAR(50),
+        user_agent TEXT,
+        login_time TIMESTAMPTZ DEFAULT NOW()
+      )`);
+      await queryFn('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
+      await queryFn('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
+      console.log(`[${label} Migrations] Completed successfully!`);
     }
 
-    runMigrations().catch(err => console.error('Error running startup migrations:', err));
+    const demoQuery = (text, params) => demoPool.query(text, params);
+
+    // Run migrations on both databases in parallel
+    Promise.all([
+      runMigrations(liveQuery, 'LIVE'),
+      runMigrations(demoQuery, 'DEMO'),
+    ]).catch(err => console.error('Error running startup migrations:', err));
   });
 }
 

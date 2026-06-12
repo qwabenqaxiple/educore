@@ -1,6 +1,6 @@
 // middleware/auth.js — JWT authentication & role authorization
 const jwt = require('jsonwebtoken');
-const { query } = require('../db/pool');
+const { query, setDbContext, DEMO_EMAILS } = require('../db/pool');
 
 // ─── User Context Helper ──────────────────────────────────────────────────────
 const getUserContext = async (userId, role, email, phone) => {
@@ -52,7 +52,7 @@ const getUserContext = async (userId, role, email, phone) => {
 };
 
 // ─── Verify JWT ───────────────────────────────────────────────────────────────
-const authenticate = async (req, res, next) => {
+const authenticate = (req, res, next) => {
   try {
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -60,22 +60,41 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Fetch fresh user data on each request
-    const { rows } = await query(
-      'SELECT id, name, email, role, phone, avatar FROM users WHERE id = $1',
-      [decoded.id]
-    );
-    if (!rows.length) return res.status(401).json({ error: 'User not found' });
-
-    req.user = rows[0];
-    req.userContext = await getUserContext(req.user.id, req.user.role, req.user.email, req.user.phone);
-    next();
-  } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      }
+      return res.status(401).json({ error: 'Invalid token' });
     }
+
+    // Determine DB type from email in JWT payload
+    const emailInToken = (decoded.email || '').toLowerCase();
+    const dbType = DEMO_EMAILS.includes(emailInToken) ? 'demo' : 'live';
+
+    // Run the rest of the request pipeline inside the correct DB context.
+    // setDbContext uses AsyncLocalStorage — every query() call downstream
+    // (including in route handlers) will automatically use the right pool.
+    setDbContext(dbType, async () => {
+      try {
+        const { rows } = await query(
+          'SELECT id, name, email, role, phone, avatar FROM users WHERE id = $1',
+          [decoded.id]
+        );
+        if (!rows.length) return res.status(401).json({ error: 'User not found' });
+
+        req.user = rows[0];
+        req.dbType = dbType;
+        req.userContext = await getUserContext(req.user.id, req.user.role, req.user.email, req.user.phone);
+        next();
+      } catch (err) {
+        console.error('authenticate error:', err);
+        return res.status(500).json({ error: 'Authentication error' });
+      }
+    });
+  } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
