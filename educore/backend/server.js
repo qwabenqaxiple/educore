@@ -122,6 +122,12 @@ if (require.main === module) {
       )`);
       await queryFn('CREATE INDEX IF NOT EXISTS idx_login_logs_user ON login_logs(user_id)');
       await queryFn('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
+      try {
+        await queryFn('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
+        await queryFn("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('Super Admin', 'Admin', 'Teacher', 'Student', 'Parent'))");
+      } catch (err) {
+        console.error(`[${label} Migrations] Warning: could not update role check constraint: ${err.message}`);
+      }
       console.log(`[${label} Migrations] Completed successfully!`);
     }
 

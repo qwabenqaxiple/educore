@@ -8,7 +8,7 @@ async function createAdmin() {
         const password = "xiple@2020";
         const hashedPassword = await bcrypt.hash(password, 10);
         const email = "teiezekiel131@gmail.com";
-        const role = "Admin";
+        const role = "Super Admin";
         const name = "Tei Ezekiel"; // Derived from email
         const avatar = "TE";
 

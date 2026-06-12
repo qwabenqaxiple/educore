@@ -57,6 +57,7 @@ export const students = {
   create: (data)        => post('/students', data),
   update: (id, data)    => put(`/students/${id}`, data),
   delete: (id)          => del(`/students/${id}`),
+  import: (data)        => post('/students/import', { students: data }),
 };
 
 // ─── Teachers ─────────────────────────────────────────────────────────────────

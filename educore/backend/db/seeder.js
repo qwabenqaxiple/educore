@@ -36,9 +36,9 @@ async function seed() {
   // 2. Hash passwords
   const isProd = process.env.APP_ENV === 'production';
   const USERS = isProd ? [
-    { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Admin', phone: '055-000-0000', avatar: 'TE' },
+    { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Super Admin', phone: '055-000-0000', avatar: 'TE' },
   ] : [
-    { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Admin', phone: '055-000-0000', avatar: 'TE' },
+    { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Super Admin', phone: '055-000-0000', avatar: 'TE' },
     { name: 'Dr. Ezekiel Tei', email: 'admin@educore.edu', password: 'admin123', role: 'Admin', phone: '055-000-0001', avatar: 'TE' },
     { name: 'Mrs. Efua Mensah', email: 'teacher@educore.edu', password: 'teach123', role: 'Teacher', phone: '055-000-0002', avatar: 'EM' },
     { name: 'Kofi Boateng', email: 'student@educore.edu', password: 'stud123', role: 'Student', phone: '055-000-0003', avatar: 'KB' },
@@ -50,11 +50,11 @@ async function seed() {
     await query(
       `INSERT INTO users (name,email,password,role,phone,avatar)
        VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (email) DO UPDATE SET password=$3`,
+       ON CONFLICT (email) DO UPDATE SET password=$3, role=$4`,
       [u.name, u.email, hash, u.role, u.phone, u.avatar]
     );
   }
-  console.log(isProd ? '✅ Users seeded (Live Admin)' : '✅ Users seeded (Admin / Teacher / Student / Parent)');
+  console.log(isProd ? '✅ Users seeded (Live Super Admin)' : '✅ Users seeded (Super Admin / Admin / Teacher / Student / Parent)');
 
   // 3. Classes
   const CLASSES = [

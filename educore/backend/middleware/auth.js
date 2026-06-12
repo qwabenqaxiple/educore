@@ -14,7 +14,7 @@ const getUserContext = async (userId, role, email, phone) => {
     childClassIds: []
   };
 
-  if (role === 'Admin') {
+  if (role === 'Admin' || role === 'Super Admin') {
     return context;
   }
 
@@ -101,12 +101,12 @@ const authenticate = (req, res, next) => {
 
 // ─── Role Gate ────────────────────────────────────────────────────────────────
 const authorize = (...roles) => (req, res, next) => {
-  if (!roles.includes(req.user.role)) {
-    return res.status(403).json({
-      error: `Access denied. Required role: ${roles.join(' or ')}`
-    });
+  if (req.user.role === 'Super Admin' || roles.includes(req.user.role)) {
+    return next();
   }
-  next();
+  return res.status(403).json({
+    error: `Access denied. Required role: ${roles.join(' or ')}`
+  });
 };
 
 module.exports = { authenticate, authorize };

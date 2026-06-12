@@ -84,10 +84,116 @@ router.get('/:id', authenticate, async (req, res) => {
   res.json(student);
 });
 
+// POST /api/students/import
+router.post('/import', authenticate, authorize('Admin','Teacher'), async (req, res) => {
+  const { students } = req.body;
+  if (!Array.isArray(students)) {
+    return res.status(400).json({ error: 'Payload must contain a students array' });
+  }
+
+  const { role, assignedClassIds } = req.userContext;
+
+  // Start Transaction
+  await query('BEGIN');
+  try {
+    // 1. Fetch all class name to ID mapping
+    const classRes = await query('SELECT id, name FROM classes');
+    const classMap = {};
+    for (const c of classRes.rows) {
+      classMap[c.name.toLowerCase().trim()] = c.id;
+    }
+
+    // 2. Fetch the starting base sequence number for student ID auto-generation
+    const lastStudent = await query(
+      `SELECT student_id FROM students 
+       WHERE student_id LIKE 'STU-%' 
+       ORDER BY student_id DESC LIMIT 1`
+    );
+    let nextNum = 1;
+    if (lastStudent.rows.length) {
+      const match = lastStudent.rows[0].student_id.match(/STU-(\d+)/);
+      if (match) {
+        nextNum = parseInt(match[1]) + 1;
+      }
+    }
+
+    const inserted = [];
+    for (let i = 0; i < students.length; i++) {
+      const s = students[i];
+      if (!s.name) {
+        throw new Error(`Row ${i + 1}: Name is required`);
+      }
+
+      const className = (s.class_name || s.className || '').toLowerCase().trim();
+      const classId = classMap[className] || null;
+
+      // Access control for teacher role
+      if (role === 'Teacher') {
+        if (!classId) {
+          throw new Error(`Row ${i + 1} ("${s.name}"): Class "${s.class_name || ''}" not found or you do not have permission.`);
+        }
+        if (!assignedClassIds.includes(classId)) {
+          throw new Error(`Row ${i + 1} ("${s.name}"): Access Denied to class "${s.class_name}".`);
+        }
+      }
+
+      // Generate unique STU-XXX ID sequential
+      const studentId = `STU-${String(nextNum + i).padStart(3, '0')}`;
+
+      const { rows } = await query(
+        `INSERT INTO students (student_id, name, class_id, age, gender, phone, guardian, guardian_phone, address, date_of_birth)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING id, student_id, name`,
+        [
+          studentId,
+          s.name,
+          classId,
+          s.age ? parseInt(s.age) : null,
+          s.gender || null,
+          s.phone || null,
+          s.guardian || null,
+          s.guardian_phone || s.guardianPhone || null,
+          s.address || null,
+          s.date_of_birth || s.dateOfBirth || null
+        ]
+      );
+      inserted.push(rows[0]);
+    }
+
+    await query('COMMIT');
+    res.json({ message: `Successfully imported ${inserted.length} students`, students: inserted });
+  } catch (err) {
+    await query('ROLLBACK');
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /api/students
 router.post('/', authenticate, authorize('Admin','Teacher'), async (req, res) => {
-  const { studentId, name, classId, age, gender, phone, guardian, guardianPhone, address, dateOfBirth } = req.body;
-  if (!name || !studentId) return res.status(400).json({ error: 'Name and Student ID are required' });
+  let { studentId, name, classId, age, gender, phone, guardian, guardianPhone, address, dateOfBirth } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+
+  // Auto-generate student_id if omitted or empty
+  if (!studentId) {
+    try {
+      const lastStudent = await query(
+        `SELECT student_id FROM students 
+         WHERE student_id LIKE 'STU-%' 
+         ORDER BY student_id DESC LIMIT 1`
+      );
+      let nextNum = 1;
+      if (lastStudent.rows.length) {
+        const match = lastStudent.rows[0].student_id.match(/STU-(\d+)/);
+        if (match) {
+          nextNum = parseInt(match[1]) + 1;
+        }
+      }
+      studentId = `STU-${String(nextNum).padStart(3, '0')}`;
+    } catch (err) {
+      console.error('Error generating student ID:', err);
+      return res.status(500).json({ error: 'Could not auto-generate student ID' });
+    }
+  }
 
   const { role, assignedClassIds } = req.userContext;
   if (role === 'Teacher' && (!classId || !assignedClassIds.includes(parseInt(classId)))) {

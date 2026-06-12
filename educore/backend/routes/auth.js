@@ -65,7 +65,7 @@ router.post('/register',
   body('name').trim().notEmpty(),
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
-  body('role').isIn(['Admin','Teacher','Student','Parent']),
+  body('role').isIn(['Super Admin','Admin','Teacher','Student','Parent']),
   async (req, res) => {
     const errs = validationResult(req);
     if (!errs.isEmpty()) return res.status(400).json({ errors: errs.array() });
@@ -91,7 +91,7 @@ router.post('/register',
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
 router.get('/me', authenticate, (req, res) => {
-  res.json({ user: req.user });
+  res.json({ user: { ...req.user, dbType: req.dbType } });
 });
 
 // ─── PUT /api/auth/password ────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ router.post('/seed-production', async (req, res) => {
       await query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sender_id INT REFERENCES users(id) ON DELETE SET NULL');
 
       // 3. Seed Users
-      const liveAdmin = { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Admin', phone: '055-000-0000', avatar: 'TE' };
+      const liveAdmin = { name: 'Tei Ezekiel', email: 'teiezekiel131@gmail.com', password: 'xiple@2020', role: 'Super Admin', phone: '055-000-0000', avatar: 'TE' };
       const demoUsers = [
         { name: 'Dr. Ezekiel Tei',  email: 'admin@educore.edu',       password: 'admin123',   role: 'Admin',   phone: '055-000-0001', avatar: 'TE' },
         { name: 'Mrs. Efua Mensah', email: 'teacher@educore.edu',     password: 'teach123',   role: 'Teacher', phone: '055-000-0002', avatar: 'EM' },
@@ -292,7 +292,7 @@ router.post('/seed-production', async (req, res) => {
         await query(
           `INSERT INTO users (name, email, password, role, phone, avatar)
            VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (email) DO UPDATE SET password=$3`,
+           ON CONFLICT (email) DO UPDATE SET password=$3, role=$4`,
           [u.name, u.email, hash, u.role, u.phone, u.avatar]
         );
       }

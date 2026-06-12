@@ -69,11 +69,11 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const PERIODS = [1, 2, 3, 4, 5, 6];
 const PT = ["07:30–08:30", "08:30–09:30", "09:30–10:30", "10:30–11:30", "11:30–12:30", "12:30–13:30"];
 const SC = { Present: "#10b981", Absent: "#ef4444", Late: "#f59e0b" };
-const RC = { Admin: "#f59e0b", Teacher: "#3b82f6", Student: "#10b981", Parent: "#a78bfa" };
+const RC = { "Super Admin": "#7c3aed", Admin: "#f59e0b", Teacher: "#3b82f6", Student: "#10b981", Parent: "#a78bfa" };
 const getRoleColor = (role, isLight) => {
-  const light = { Admin: "#b45309", Teacher: "#1d4ed8", Student: "#15803d", Parent: "#6b21a8" };
-  const dark = { Admin: "#f59e0b", Teacher: "#3b82f6", Student: "#10b981", Parent: "#a78bfa" };
-  return isLight ? light[role] : dark[role];
+  const light = { "Super Admin": "#7c3aed", Admin: "#b45309", Teacher: "#1d4ed8", Student: "#15803d", Parent: "#6b21a8" };
+  const dark = { "Super Admin": "#a78bfa", Admin: "#f59e0b", Teacher: "#3b82f6", Student: "#10b981", Parent: "#a78bfa" };
+  return isLight ? (light[role] || "#7c3aed") : (dark[role] || "#a78bfa");
 };
 const getGradeColor = (c, isLight) => {
   if (!isLight) return c;
@@ -590,6 +590,8 @@ export default function App() {
   const [isLight, setIsLight] = useState(() => localStorage.getItem("educore_theme") === "light");
   const [networkError, setNetworkError] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem("educore_sidebar_collapsed") === "true");
+  const [isHovered, setIsHovered] = useState(false);
 
   const changePg = (p) => {
     setPg(p);
@@ -760,16 +762,16 @@ export default function App() {
   if (!user) return <><style>{CSS}</style><Login onLogin={handleLogin} /></>;
 
   const PAGES = [
-    { id: "dash", icon: "⊞", label: "Dashboard", roles: ["Admin", "Teacher", "Student", "Parent"] },
-    { id: "stud", icon: "👤", label: "Students", roles: ["Admin", "Teacher"] },
-    { id: "tchr", icon: "🎓", label: "Teachers", roles: ["Admin"] },
-    { id: "cls", icon: "🏫", label: "Classes & Subjects", roles: ["Admin", "Teacher"] },
-    { id: "att", icon: "📋", label: "Attendance", roles: ["Admin", "Teacher", "Student"] },
-    { id: "exam", icon: "📝", label: "Exams & Results", roles: ["Admin", "Teacher", "Student", "Parent"] },
-    { id: "fee", icon: "💳", label: "Fee Management", roles: ["Admin", "Parent"] },
-    { id: "tt", icon: "🗓", label: "Timetable", roles: ["Admin", "Teacher", "Student"] },
-    { id: "rpt", icon: "📊", label: "Reports", roles: ["Admin", "Teacher"] },
-    { id: "usr", icon: "🔐", label: "Users", roles: ["Admin"] },
+    { id: "dash", icon: "⊞", label: "Dashboard", roles: ["Super Admin", "Admin", "Teacher", "Student", "Parent"] },
+    { id: "stud", icon: "👤", label: "Students", roles: ["Super Admin", "Admin", "Teacher"] },
+    { id: "tchr", icon: "🎓", label: "Teachers", roles: ["Super Admin", "Admin"] },
+    { id: "cls", icon: "🏫", label: "Classes & Subjects", roles: ["Super Admin", "Admin", "Teacher"] },
+    { id: "att", icon: "📋", label: "Attendance", roles: ["Super Admin", "Admin", "Teacher", "Student"] },
+    { id: "exam", icon: "📝", label: "Exams & Results", roles: ["Super Admin", "Admin", "Teacher", "Student", "Parent"] },
+    { id: "fee", icon: "💳", label: "Fee Management", roles: ["Super Admin", "Admin", "Parent"] },
+    { id: "tt", icon: "🗓", label: "Timetable", roles: ["Super Admin", "Admin", "Teacher", "Student"] },
+    { id: "rpt", icon: "📊", label: "Reports", roles: ["Super Admin", "Admin", "Teacher"] },
+    { id: "usr", icon: "🔐", label: "Users", roles: ["Super Admin", "Admin"] },
   ].filter(p => p.roles.includes(user.role));
 
   const unreadCount = notifs.filter(n => !n.read).length;
@@ -780,31 +782,142 @@ export default function App() {
     <div className={`app-container ${isLight ? "theme-light" : ""}`}>
       <style>{CSS}</style>
 
+      {/* Sidebar Spacer */}
+      <div style={{
+        width: isCollapsed ? 68 : 218,
+        transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        flexShrink: 0
+      }} />
+
       {/* Sidebar */}
-      <aside style={{ width: 218, background: "#060910", borderRight: "1px solid #0d1827", display: "flex", flexDirection: "column", padding: "18px 10px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 22px" }}>
+      <aside 
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{ 
+          width: isCollapsed ? (isHovered ? 218 : 68) : 218, 
+          background: "#060910", 
+          borderRight: "1px solid #0d1827", 
+          display: "flex", 
+          flexDirection: "column", 
+          padding: isCollapsed && !isHovered ? "18px 8px" : "18px 10px", 
+          flexShrink: 0,
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 100,
+          boxShadow: isCollapsed && isHovered ? "4px 0 24px rgba(0,0,0,0.6)" : "none",
+          transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s"
+        }}
+      >
+        {/* Collapse/Expand Toggle Button */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            const next = !isCollapsed;
+            setIsCollapsed(next);
+            localStorage.setItem("educore_sidebar_collapsed", next ? "true" : "false");
+          }}
+          style={{
+            position: "absolute",
+            top: 28,
+            right: -11,
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            background: "#060910",
+            border: "1px solid #0d1827",
+            color: "#94a3b8",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            zIndex: 110,
+            fontSize: 14,
+            fontWeight: "bold",
+            transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+            transform: isCollapsed ? "rotate(180deg)" : "none"
+          }}
+          onMouseOver={e => { e.currentTarget.style.color = "#f1f5f9"; e.currentTarget.style.borderColor = "#3b82f6" }}
+          onMouseOut={e => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#0d1827" }}
+        >
+          ‹
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 22px", overflow: "hidden" }}>
           <img src={APSLogo} alt="APS Logo" style={{ width: 42, height: 42, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
-          <div>
+          <div style={{
+            opacity: (!isCollapsed || isHovered) ? 1 : 0,
+            width: (!isCollapsed || isHovered) ? "auto" : 0,
+            transition: "opacity 0.2s, width 0.2s",
+            overflow: "hidden",
+            whiteSpace: "nowrap"
+          }}>
             <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 13, color: "#f1f5f9", letterSpacing: -.3 }}>Ambassador's Prep.</div>
             <div style={{ fontSize: 9.5, color: "#475569", fontWeight: 700, letterSpacing: 1 }}>SCHOOL MANAGEMENT</div>
           </div>
         </div>
+
         <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
           {PAGES.map(p => (
-            <button key={p.id} className={`nb${pg === p.id ? " on" : ""}`} onClick={() => changePg(p.id)}>
-              <span style={{ fontSize: 15 }}>{p.icon}</span><span>{p.label}</span>
+            <button 
+              key={p.id} 
+              className={`nb${pg === p.id ? " on" : ""}`} 
+              onClick={() => changePg(p.id)}
+              style={{
+                justifyContent: (!isCollapsed || isHovered) ? "flex-start" : "center",
+                padding: (!isCollapsed || isHovered) ? "11px 14px" : "11px 0",
+                gap: (!isCollapsed || isHovered) ? "10px" : "0px",
+                transition: "all 0.2s"
+              }}
+            >
+              <span style={{ fontSize: 15, display: "inline-flex", justifyContent: "center", width: (!isCollapsed || isHovered) ? "auto" : "32px", flexShrink: 0 }}>{p.icon}</span>
+              <span style={{ 
+                opacity: (!isCollapsed || isHovered) ? 1 : 0, 
+                width: (!isCollapsed || isHovered) ? "auto" : 0,
+                overflow: "hidden",
+                transition: "opacity 0.2s, width 0.2s",
+                whiteSpace: "nowrap"
+              }}>{p.label}</span>
             </button>
           ))}
         </nav>
+
         <div style={{ borderTop: "1px solid #0d1827", paddingTop: 14, marginTop: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "4px 8px 10px" }}>
-            <div className="av" style={{ background: RC[user.role] + "22", color: RC[user.role] }}>{user.avatar}</div>
-            <div style={{ overflow: "hidden", flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name.split(" ")[0]}</div>
-              <span style={{ fontSize: 10, background: RC[user.role] + "22", color: RC[user.role], padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{user.role}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: (!isCollapsed || isHovered) ? "4px 8px 10px" : "4px 0 10px", justifyContent: (!isCollapsed || isHovered) ? "flex-start" : "center" }}>
+            <div className="av" style={{ background: getRoleColor(user.role, isLight) + "22", color: getRoleColor(user.role, isLight), flexShrink: 0 }}>{user.avatar}</div>
+            <div style={{ 
+              opacity: (!isCollapsed || isHovered) ? 1 : 0, 
+              width: (!isCollapsed || isHovered) ? "auto" : 0, 
+              overflow: "hidden", 
+              transition: "opacity 0.2s, width 0.2s",
+              whiteSpace: "nowrap",
+              flex: 1 
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name.split(" ")[0]}</div>
+              <span style={{ fontSize: 10, background: getRoleColor(user.role, isLight) + "22", color: getRoleColor(user.role, isLight), padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{user.role}</span>
             </div>
           </div>
-          <button className="nb" onClick={handleLogout} style={{ color: "#ef4444" }}>↩ Sign Out</button>
+          <button 
+            className="nb" 
+            onClick={handleLogout} 
+            style={{ 
+              color: "#ef4444",
+              justifyContent: (!isCollapsed || isHovered) ? "flex-start" : "center",
+              padding: (!isCollapsed || isHovered) ? "11px 14px" : "11px 0",
+              gap: (!isCollapsed || isHovered) ? "10px" : "0px"
+            }}
+          >
+            <span style={{ display: "inline-flex", justifyContent: "center", width: (!isCollapsed || isHovered) ? "auto" : "32px", flexShrink: 0 }}>↩</span>
+            <span style={{
+              opacity: (!isCollapsed || isHovered) ? 1 : 0,
+              width: (!isCollapsed || isHovered) ? "auto" : 0,
+              overflow: "hidden",
+              transition: "opacity 0.2s, width 0.2s",
+              whiteSpace: "nowrap"
+            }}>Sign Out</span>
+          </button>
         </div>
       </aside>
 
@@ -959,7 +1072,7 @@ export default function App() {
                     )}
                   </div>
 
-                  {(user.role === "Admin" || user.role === "Teacher") && (
+                  {(user.role === "Admin" || user.role === "Super Admin" || user.role === "Teacher") && (
                     <div className="notif-footer">
                       <button 
                         className="btn-link" 
@@ -1240,6 +1353,69 @@ function Dash({ user, go, N, isLight, setIsLight }) {
   return (
     <div className="anim">
       <PH title={`Hello, ${user.name.split(" ")[0]} 👋`} sub={new Date().toLocaleDateString("en-GH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} />
+      
+      {user.role === "Super Admin" && (
+        <div style={{ 
+          background: "linear-gradient(135deg, #1e1b4b 0%, #311042 100%)", 
+          border: "1px solid #7c3aed44", 
+          borderRadius: 16, 
+          padding: "20px 24px", 
+          marginBottom: 24, 
+          display: "flex", 
+          alignItems: "center", 
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+          boxShadow: "0 4px 20px rgba(124, 58, 237, 0.15)"
+        }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 18 }}>✨</span>
+              <span style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 16, color: "#f3e8ff", letterSpacing: -.2 }}>
+                Super Admin Console
+              </span>
+              <span style={{ 
+                fontSize: 10, 
+                background: "#7c3aed33", 
+                color: "#c084fc", 
+                padding: "2px 8px", 
+                borderRadius: 10, 
+                fontWeight: 700,
+                border: "1px solid #7c3aed55"
+              }}>
+                Owner Account
+              </span>
+            </div>
+            <div style={{ fontSize: 13, color: "#cbd5e1" }}>
+              Logged in with full privileges. You can view all records and generate login logs reports.
+            </div>
+          </div>
+          <div style={{ 
+            background: "#00000044", 
+            border: "1px solid #cbd5e11a", 
+            borderRadius: 12, 
+            padding: "10px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ 
+              width: 10, 
+              height: 10, 
+              borderRadius: "50%", 
+              background: user.dbType === "live" ? "#10b981" : "#f59e0b",
+              boxShadow: `0 0 10px ${user.dbType === "live" ? "#10b981" : "#f59e0b"}`
+            }} />
+            <div>
+              <div style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Active Database Context</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f8fafc" }}>
+                {user.dbType === "live" ? "Live Production Database" : "Demo Sandbox Database"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(185px,1fr))", gap: 14, marginBottom: 26 }}>
         {STATS.map(s => (
           <button key={s.label} onClick={() => go(s.page)}
@@ -1318,18 +1494,24 @@ function Studs({ user, N }) {
   const [fc, setFc] = useState("");
   const [f, setF] = useState({});
   const [saving, setSaving] = useState(false);
-  const can = user.role === "Admin" || user.role === "Teacher";
+  const can = user.role === "Admin" || user.role === "Super Admin" || user.role === "Teacher";
 
   const { data: res, loading, reload } = useData(() => API.students.list({ search: q, classId: fc }), [q, fc]);
   const { data: cls } = useData(() => API.classes.list());
   const list = res?.students || [];
+
+  // Import CSV states
+  const [showImport, setShowImport] = useState(false);
+  const [importData, setImportData] = useState([]);
+  const [importError, setImportError] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const save = async () => {
     if (!f.name || !f.classId) { N("Name and class required", false); return; }
     setSaving(true);
     const dobValue = f.dateOfBirth || f.date_of_birth || null;
     try {
-      if (m === "add") await API.students.create({ studentId: f.studentId, name: f.name, classId: +f.classId, age: +f.age || null, gender: f.gender, phone: f.phone, guardian: f.guardian, guardianPhone: f.guardianPhone, address: f.address, dateOfBirth: dobValue });
+      if (m === "add") await API.students.create({ name: f.name, classId: +f.classId, age: +f.age || null, gender: f.gender, phone: f.phone, guardian: f.guardian, guardianPhone: f.guardianPhone, address: f.address, dateOfBirth: dobValue });
       else await API.students.update(f.id, { name: f.name, classId: +f.classId, age: +f.age || null, gender: f.gender, phone: f.phone, guardian: f.guardian, guardianPhone: f.guardianPhone, address: f.address, dateOfBirth: dobValue });
       N(m === "add" ? "Student added" : "Student updated"); setM(null); reload();
     } catch (e) { N(e.message, false); }
@@ -1342,11 +1524,137 @@ function Studs({ user, N }) {
     catch (e) { N(e.message, false); }
   };
 
+  const parseCSVText = (text) => {
+    const lines = [];
+    const linesRaw = text.split(/\r?\n/);
+    for (const line of linesRaw) {
+      if (!line.trim()) continue;
+      const row = [];
+      let inQuotes = false;
+      let currentVal = '';
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          row.push(currentVal);
+          currentVal = '';
+        } else {
+          currentVal += char;
+        }
+      }
+      row.push(currentVal);
+      lines.push(row.map(cell => cell.replace(/^"(.*)"$/, '$1').trim()));
+    }
+    return lines;
+  };
+
+  const handleCSVUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      try {
+        const rows = parseCSVText(text);
+        if (rows.length === 0) {
+          setImportError("CSV file is empty");
+          return;
+        }
+        
+        // Normalize headers
+        const headers = rows[0].map(h => h.toLowerCase().trim().replace(/[\s_]/g, ''));
+        const nameIdx = headers.findIndex(h => h === 'name' || h === 'fullname');
+        const classIdx = headers.findIndex(h => h === 'classname' || h === 'class');
+        const ageIdx = headers.findIndex(h => h === 'age');
+        const genderIdx = headers.findIndex(h => h === 'gender');
+        const phoneIdx = headers.findIndex(h => h === 'phone');
+        const guardianIdx = headers.findIndex(h => h === 'guardian' || h === 'guardianname');
+        const guardianPhoneIdx = headers.findIndex(h => h === 'guardianphone');
+        const addressIdx = headers.findIndex(h => h === 'address');
+        const dobIdx = headers.findIndex(h => h === 'dateofbirth' || h === 'dob');
+        
+        if (nameIdx === -1) {
+          setImportError("CSV must contain a 'name' column");
+          return;
+        }
+        if (classIdx === -1) {
+          setImportError("CSV must contain a 'class_name' column");
+          return;
+        }
+        
+        const parsedStudents = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.length < 2 || !row[nameIdx]) continue; // Skip empty rows
+          
+          parsedStudents.push({
+            name: row[nameIdx]?.trim() || '',
+            class_name: row[classIdx]?.trim() || '',
+            age: ageIdx !== -1 ? row[ageIdx]?.trim() || '' : '',
+            gender: genderIdx !== -1 ? row[genderIdx]?.trim() || '' : 'Male',
+            phone: phoneIdx !== -1 ? row[phoneIdx]?.trim() || '' : '',
+            guardian: guardianIdx !== -1 ? row[guardianIdx]?.trim() || '' : '',
+            guardian_phone: guardianPhoneIdx !== -1 ? row[guardianPhoneIdx]?.trim() || '' : '',
+            address: addressIdx !== -1 ? row[addressIdx]?.trim() || '' : '',
+            date_of_birth: dobIdx !== -1 ? row[dobIdx]?.trim() || '' : ''
+          });
+        }
+        
+        if (parsedStudents.length === 0) {
+          setImportError("No valid student records found in CSV");
+          return;
+        }
+        
+        setImportData(parsedStudents);
+        setImportError("");
+      } catch (err) {
+        setImportError("Failed to parse CSV: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const downloadTemplate = () => {
+    const headers = ["name", "class_name", "age", "gender", "phone", "guardian", "guardian_phone", "address", "date_of_birth"];
+    const sample = ["Kofi Mensah", "Form 1A", "14", "Male", "055-111-2222", "Ama Mensah", "055-111-3333", "123 School Rd, Accra", "2012-05-15"];
+    const content = [headers.join(","), sample.join(",")].join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "students_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const executeImport = async () => {
+    if (!importData.length) return;
+    setImporting(true);
+    setImportError("");
+    try {
+      const res = await API.students.import(importData);
+      N(res.message || "Students imported successfully!");
+      setShowImport(false);
+      setImportData([]);
+      reload();
+    } catch (e) {
+      setImportError(e.message || "Failed to import CSV");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="anim">
       <PH title="Student Management" sub={`${list.length} enrolled`}
         btn={can && (
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button className="be" onClick={() => { setImportData([]); setImportError(""); setShowImport(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 9, fontSize: 13, cursor: "pointer" }}>
+              <span>📤</span> Import CSV
+            </button>
             <button className="be" onClick={() => downloadCSV(list, "students_export.csv", {
               student_id: "Student ID",
               name: "Full Name",
@@ -1361,7 +1669,7 @@ function Studs({ user, N }) {
             })} disabled={!list.length} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 9, fontSize: 13, opacity: !list.length ? 0.5 : 1, cursor: !list.length ? "not-allowed" : "pointer" }}>
               <span>📥</span> Export CSV
             </button>
-            <button className="bp" onClick={() => { setF({ name: "", studentId: `STU-00${(list.length + 1)}`, classId: "", age: "", gender: "Male", phone: "", guardian: "", guardianPhone: "", address: "", dateOfBirth: "" }); setM("add"); }}>+ Add Student</button>
+            <button className="bp" onClick={() => { setF({ name: "", studentId: "", classId: "", age: "", gender: "Male", phone: "", guardian: "", guardianPhone: "", address: "", dateOfBirth: "" }); setM("add"); }}>+ Add Student</button>
           </div>
         )} />
       <div className="card">
@@ -1412,20 +1720,123 @@ function Studs({ user, N }) {
         <Modal title={m === "add" ? "Add Student" : "Edit Student"} onClose={() => setM(null)}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <Fld label="Full Name"><input className="inp" value={f.name || ""} onChange={e => setF(x => ({ ...x, name: e.target.value }))} /></Fld>
-            <Fld label="Student ID"><input className="inp" value={f.studentId || f.student_id || ""} onChange={e => setF(x => ({ ...x, studentId: e.target.value }))} /></Fld>
+            {m === "edit" ? (
+              <Fld label="Student ID">
+                <div style={{ padding: "10px 12px", background: "var(--bg-input)", border: "1px solid var(--border-main)", borderRadius: "8px", fontWeight: 600, color: "var(--text-label)", fontSize: 13 }}>
+                  {f.studentId || f.student_id || "—"}
+                </div>
+              </Fld>
+            ) : null}
             <Fld label="Class"><select className="inp" value={f.classId || ""} onChange={e => setF(x => ({ ...x, classId: e.target.value }))}>
               <option value="">Select Class</option>{(cls || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select></Fld>
             <Fld label="Date of Birth"><input className="inp" type="date" value={formatDateForInput(f.dateOfBirth || f.date_of_birth || "")} onChange={e => setF(x => ({ ...x, dateOfBirth: e.target.value }))} /></Fld>
             <Fld label="Age"><input className="inp" type="number" value={f.age || ""} onChange={e => setF(x => ({ ...x, age: e.target.value }))} /></Fld>
-            <Fld label="Gender"><select className="inp" value={f.gender || "Male"} onChange={e => setF(x => ({ ...x, gender: e.target.value }))}><option>Male</option><option>Female</option></select></Fld>
+            <Fld label="Gender"><select className="inp" value={f.gender || "Male"} onChange={e => setF(x => ({ ...x, gender: e.target.value }))}>
+              <option>Male</option>
+              <option>Female</option>
+            </select></Fld>
             <Fld label="Phone"><input className="inp" value={f.phone || ""} onChange={e => setF(x => ({ ...x, phone: e.target.value }))} /></Fld>
-            <div></div> {/* Empty spacer to align the next row perfectly */}
+            <div></div>
             <Fld label="Guardian Name"><input className="inp" value={f.guardian || ""} onChange={e => setF(x => ({ ...x, guardian: e.target.value }))} /></Fld>
             <Fld label="Guardian Phone"><input className="inp" value={f.guardianPhone || f.guardian_phone || ""} onChange={e => setF(x => ({ ...x, guardianPhone: e.target.value }))} /></Fld>
           </div>
           <Fld label="Address"><input className="inp" value={f.address || ""} onChange={e => setF(x => ({ ...x, address: e.target.value }))} /></Fld>
           <SaveCancel onSave={save} onCancel={() => setM(null)} label={m === "add" ? "Add Student" : "Save Changes"} saving={saving} />
+        </Modal>
+      )}
+
+      {showImport && (
+        <Modal title="Import Students CSV" onClose={() => setShowImport(false)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ background: "var(--bg-main)", border: "1px solid var(--border-main)", borderRadius: 12, padding: "16px 20px" }}>
+              <div style={{ fontWeight: 700, color: "var(--text-title)", fontSize: 14, marginBottom: 8 }}>CSV Structure Guide</div>
+              <p style={{ fontSize: 12, color: "var(--text-main)", lineHeight: 1.5, marginBottom: 12 }}>
+                Please upload a CSV file with the following headers. Student IDs will be automatically generated by the system.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                {["name", "class_name", "age", "gender", "phone", "guardian", "guardian_phone", "address", "date_of_birth"].map(h => (
+                  <span key={h} className="badge badge-purple" style={{ fontFamily: "monospace", fontSize: 11 }}>{h}</span>
+                ))}
+              </div>
+              <button className="be" onClick={downloadTemplate} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px" }}>
+                📄 Download CSV Template
+              </button>
+            </div>
+
+            <div style={{
+              border: "2px dashed var(--border-main)",
+              borderRadius: 12,
+              padding: "30px 20px",
+              textAlign: "center",
+              background: "var(--bg-card)",
+              cursor: "pointer",
+              transition: "border-color 0.2s",
+              position: "relative"
+            }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => {
+              e.preventDefault();
+              if (e.dataTransfer.files[0]) {
+                const fakeEvent = { target: { files: e.dataTransfer.files } };
+                handleCSVUpload(fakeEvent);
+              }
+            }}>
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={handleCSVUpload} 
+                style={{ 
+                  position: "absolute", 
+                  top: 0, 
+                  left: 0, 
+                  width: "100%", 
+                  height: "100%", 
+                  opacity: 0, 
+                  cursor: "pointer" 
+                }} 
+              />
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
+              <div style={{ fontWeight: 700, color: "var(--text-title)", fontSize: 14, marginBottom: 4 }}>Drag & Drop CSV file here</div>
+              <div style={{ fontSize: 12, color: "var(--text-label)" }}>or click to browse from device</div>
+            </div>
+
+            {importError && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fee2e2", color: "#b91c1c", padding: "12px 16px", borderRadius: 8, fontSize: 12, fontWeight: 500 }}>
+                ⚠️ {importError}
+              </div>
+            )}
+
+            {importData.length > 0 && (
+              <div className="card" style={{ padding: 14, background: "var(--bg-main)", border: "1px solid var(--border-main)" }}>
+                <div style={{ fontWeight: 700, color: "var(--text-title)", fontSize: 13, marginBottom: 10 }}>
+                  📋 Previewing {importData.length} records (showing first 3):
+                </div>
+                <table className="tbl" style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr><th>Name</th><th>Class</th><th>Gender</th><th>Guardian</th></tr>
+                  </thead>
+                  <tbody>
+                    {importData.slice(0, 3).map((s, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 600, color: "var(--text-title)" }}>{s.name}</td>
+                        <td><span className="badge badge-blue">{s.class_name}</span></td>
+                        <td>{s.gender}</td>
+                        <td>{s.guardian || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <SaveCancel 
+            onSave={executeImport} 
+            onCancel={() => setShowImport(false)} 
+            label={importing ? "Importing..." : `Import ${importData.length} Students`} 
+            saving={importing} 
+            disabled={!importData.length || importing}
+          />
         </Modal>
       )}
     </div>
@@ -1466,7 +1877,7 @@ function Tchrs({ user, N }) {
   return (
     <div className="anim">
       <PH title="Teacher Management" sub={`${list.length} staff`}
-        btn={user.role === "Admin" && (
+        btn={(user.role === "Admin" || user.role === "Super Admin") && (
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <button className="be" onClick={() => {
               const teachersToExport = list.map(t => {
@@ -1524,7 +1935,7 @@ function Tchrs({ user, N }) {
               </div>
               <div style={{ borderTop: "1px solid var(--border-main)", paddingTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "var(--text-label)" }}>📞 {t.phone || "—"}</span>
-                {user.role === "Admin" && <div style={{ display: "flex", gap: 6 }}>
+                {(user.role === "Admin" || user.role === "Super Admin") && <div style={{ display: "flex", gap: 6 }}>
                   <button className="be" onClick={() => { setF({ ...t, subjects: [...(t.subjects || [])], classes: [...(t.classes || [])] }); setM("edit"); }}>Edit</button>
                   <button className="bd" onClick={() => delTeacher(t.id, t.name)}>🗑 Delete</button>
                 </div>}
@@ -1562,7 +1973,7 @@ function Cls({ user, N, isLight }) {
   const [m, setM] = useState(null);
   const [f, setF] = useState({});
   const [saving, setSaving] = useState(false);
-  const can = user.role === "Admin";
+  const can = user.role === "Admin" || user.role === "Super Admin";
 
   const { data: classes, reload: reloadCls } = useData(() => API.classes.list());
   const { data: subjects, reload: reloadSub } = useData(() => API.subjects.list());
@@ -1690,7 +2101,7 @@ function Att({ user, N, isLight }) {
   const [cid, setCid] = useState("");
   const [saving, setSaving] = useState(false);
   const [statuses, setStatuses] = useState({});
-  const can = user.role === "Admin" || user.role === "Teacher";
+  const can = user.role === "Admin" || user.role === "Super Admin" || user.role === "Teacher";
 
   const { data: classes } = useData(() => API.classes.list());
   const effectiveCid = cid || classes?.[0]?.id || "";
@@ -1851,7 +2262,7 @@ function Exam({ user, N, isLight }) {
   const [sc, setSc] = useState({});
   const [rc, setRc] = useState("");
   const [saving, setSaving] = useState(false);
-  const can = user.role === "Admin" || user.role === "Teacher";
+  const can = user.role === "Admin" || user.role === "Super Admin" || user.role === "Teacher";
 
   const { data: exams, reload } = useData(() => API.exams.list());
   const { data: classes } = useData(() => API.classes.list());
@@ -2089,7 +2500,7 @@ function Fees({ user, N, isLight }) {
   return (
     <div className="anim">
       <PH title="Fee Management" sub="Track payments and balances"
-        btn={user.role === "Admin" && <button className="bp" onClick={() => { setF({ studentId: "", amount: 800, paid: "", term: "Term 1", year: "2025", date: todayStr(), method: "Cash" }); setM(true); }}>+ Record Payment</button>} />
+        btn={(user.role === "Admin" || user.role === "Super Admin") && <button className="bp" onClick={() => { setF({ studentId: "", amount: 800, paid: "", term: "Term 1", year: "2025", date: todayStr(), method: "Cash" }); setM(true); }}>+ Record Payment</button>} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 22 }}>
         {[{ l: "Total Billed", v: `₵${parseFloat(s.total_billed || 0).toLocaleString()}`, c: isLight ? "#1d4ed8" : "#60a5fa", bg: isLight ? "#eff6ff" : "#0d1827" },
         { l: "Collected", v: `₵${parseFloat(s.total_collected || 0).toLocaleString()}`, c: isLight ? "#15803d" : "#86efac", bg: isLight ? "#dcfce7" : "#052e16" },
@@ -2104,7 +2515,7 @@ function Fees({ user, N, isLight }) {
         {["all", "paid", "outstanding"].map(x => <button key={x} className={`tab${fil === x ? " on" : ""}`} onClick={() => setFil(x)}>{x === "all" ? "All" : x === "paid" ? "✅ Paid" : "⚠️ Outstanding"}</button>)}
       </div>
       <div className="card"><div style={{ overflowX: "auto" }}><table className="tbl">
-        <thead><tr><th>Student</th><th>Term</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Date</th><th>Receipt</th>{user.role === "Admin" && <th>Actions</th>}</tr></thead>
+        <thead><tr><th>Student</th><th>Term</th><th>Total</th><th>Paid</th><th>Balance</th><th>Method</th><th>Date</th><th>Receipt</th>{(user.role === "Admin" || user.role === "Super Admin") && <th>Actions</th>}</tr></thead>
         <tbody>
           {rows.map(r => (
             <tr key={r.id}>
@@ -2116,7 +2527,7 @@ function Fees({ user, N, isLight }) {
               <td>{r.method || "—"}</td>
               <td style={{ fontFamily: "'DM Mono',monospace", fontSize: 12 }}>{r.date || "—"}</td>
               <td>{r.receipt_no ? <span className="badge badge-green">{r.receipt_no}</span> : "—"}</td>
-              {user.role === "Admin" && <td>
+              {(user.role === "Admin" || user.role === "Super Admin") && <td>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <button className="be" onClick={() => { setF({ ...r, studentId: r.student_id }); setM("edit"); }}>Edit</button>
                   {parseFloat(r.balance || 0) > 0 && <button className="be" onClick={() => remind(r.id)}>📧 Remind</button>}
@@ -2170,7 +2581,7 @@ function TT({ user, N, isLight }) {
   const [m, setM] = useState(null);
   const [f, setF] = useState({});
   const [saving, setSaving] = useState(false);
-  const can = user.role === "Admin";
+  const can = user.role === "Admin" || user.role === "Super Admin";
 
   const { data: classes } = useData(() => API.classes.list());
   const effectiveCid = cid || classes?.[0]?.id || "";
@@ -2368,6 +2779,16 @@ function Usrs({ user, N, isLight }) {
   const { data: loginHistory } = useData(() => API.users.logins(), []);
   const loginsList = loginHistory || [];
 
+  const [loginsSearch, setLoginsSearch] = useState("");
+  const [loginsRoleFilter, setLoginsRoleFilter] = useState("");
+
+  const filteredLogins = loginsList.filter(l => {
+    const nameMatch = (l.name || "").toLowerCase().includes(loginsSearch.toLowerCase());
+    const emailMatch = (l.email || "").toLowerCase().includes(loginsSearch.toLowerCase());
+    const roleMatch = !loginsRoleFilter || l.role === loginsRoleFilter;
+    return (nameMatch || emailMatch) && roleMatch;
+  });
+
   const save = async () => {
     if (!f.name || !f.email || (m === "add" && !f.password)) { N("Fill required fields", false); return; }
     setSaving(true);
@@ -2383,6 +2804,162 @@ function Usrs({ user, N, isLight }) {
     if (!confirm("Delete this user?")) return;
     try { await API.users.delete(id); N("User removed"); reload(); }
     catch (e) { N(e.message, false); }
+  };
+
+  const printLogins = () => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentWindow.document || iframe.contentDocument;
+    iframeDoc.open();
+    iframeDoc.write(`
+      <html>
+        <head>
+          <title>Recent User Login Sessions - Ambassador's Prep. School</title>
+          <style>
+            body {
+              font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+              color: #1e293b;
+              padding: 20px;
+            }
+            .header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 15px;
+              margin-bottom: 20px;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #64748b;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .meta {
+              text-align: right;
+              font-size: 12px;
+              color: #64748b;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+            }
+            th {
+              background-color: #f8fafc;
+              color: #475569;
+              font-weight: 700;
+              font-size: 11px;
+              text-transform: uppercase;
+              text-align: left;
+              padding: 10px 12px;
+              border-bottom: 2px solid #cbd5e1;
+            }
+            td {
+              padding: 10px 12px;
+              border-bottom: 1px solid #e2e8f0;
+              font-size: 13px;
+            }
+            .user-cell {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .avatar {
+              width: 28px;
+              height: 28px;
+              border-radius: 50%;
+              background: #cbd5e1;
+              color: #334155;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 11px;
+            }
+            .badge {
+              display: inline-block;
+              padding: 3px 8px;
+              font-size: 11px;
+              font-weight: 700;
+              border-radius: 9999px;
+              text-transform: capitalize;
+            }
+            .badge-Super-Admin { background: #f3e8ff; color: #6b21a8; }
+            .badge-Admin { background: #fce7f3; color: #9d174d; }
+            .badge-Teacher { background: #dbeafe; color: #1e40af; }
+            .badge-Student { background: #dcfce7; color: #166534; }
+            .badge-Parent { background: #fef3c7; color: #92400e; }
+            .mono {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">Ambassador's Prep. School</div>
+              <div class="subtitle">System User Login Sessions Report</div>
+            </div>
+            <div class="meta">
+              <div>Printed By: ${user.name} (${user.role})</div>
+              <div>Date: ${new Date().toLocaleString()}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>User Name</th>
+                <th>Email Address</th>
+                <th>Role</th>
+                <th>IP Address</th>
+                <th>Device / Browser</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredLogins.map(l => `
+                <tr>
+                  <td>
+                    <div class="user-cell">
+                      <div class="avatar">${l.name ? l.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "U"}</div>
+                      <span style="font-weight: 600;">${l.name || "Unknown User"}</span>
+                    </div>
+                  </td>
+                  <td class="mono">${l.email}</td>
+                  <td><span class="badge badge-${l.role.replace(" ", "-")}">${l.role}</span></td>
+                  <td class="mono">${l.ip_address}</td>
+                  <td>${formatUserAgent(l.user_agent)}</td>
+                  <td class="mono">${new Date(l.login_time).toLocaleString("en-GH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                </tr>
+              `).join('')}
+              ${!filteredLogins.length ? '<tr><td colspan="6" style="text-align: center; padding: 24px;">No login sessions found matching criteria</td></tr>' : ''}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+    
+    iframe.contentWindow.focus();
+    setTimeout(() => {
+      iframe.contentWindow.print();
+      document.body.removeChild(iframe);
+    }, 500);
   };
 
   return (
@@ -2405,8 +2982,12 @@ function Usrs({ user, N, isLight }) {
               <td>{u.phone || "—"}</td>
               <td>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="be" onClick={() => { setF({ ...u }); setM("edit"); }}>Edit</button>
-                  {u.id !== user.id && <button className="bd" onClick={() => del(u.id)}>Del</button>}
+                  {(u.role !== "Super Admin" || user.role === "Super Admin") && (
+                    <button className="be" onClick={() => { setF({ ...u }); setM("edit"); }}>Edit</button>
+                  )}
+                  {u.id !== user.id && (u.role !== "Super Admin" || user.role === "Super Admin") && (
+                    <button className="bd" onClick={() => del(u.id)}>Del</button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -2415,7 +2996,34 @@ function Usrs({ user, N, isLight }) {
       </table></div>
 
       <div style={{ marginTop: 26 }} className="card">
-        <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-title)", marginBottom: 16 }}>🔑 Recent Logged-in Sessions</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-title)" }}>🔑 Recent Logged-in Sessions</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <input 
+              className="inp" 
+              style={{ width: 180, height: 32, padding: "0 10px", fontSize: 12 }} 
+              placeholder="Search email / name…" 
+              value={loginsSearch} 
+              onChange={e => setLoginsSearch(e.target.value)} 
+            />
+            <select 
+              className="inp" 
+              style={{ width: 130, height: 32, padding: "0 5px", fontSize: 12 }} 
+              value={loginsRoleFilter} 
+              onChange={e => setLoginsRoleFilter(e.target.value)}
+            >
+              <option value="">All Roles</option>
+              <option value="Super Admin">Super Admin</option>
+              <option value="Admin">Admin</option>
+              <option value="Teacher">Teacher</option>
+              <option value="Student">Student</option>
+              <option value="Parent">Parent</option>
+            </select>
+            <button className="be" onClick={printLogins} style={{ height: 32, display: "flex", alignItems: "center", gap: 5, padding: "0 12px" }}>
+              🖨️ Print Sessions
+            </button>
+          </div>
+        </div>
         <div style={{ overflowX: "auto" }}>
           <table className="tbl">
             <thead>
@@ -2429,7 +3037,7 @@ function Usrs({ user, N, isLight }) {
               </tr>
             </thead>
             <tbody>
-              {loginsList.map(l => (
+              {filteredLogins.map(l => (
                 <tr key={l.id}>
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -2448,7 +3056,7 @@ function Usrs({ user, N, isLight }) {
                   </td>
                 </tr>
               ))}
-              {!loginsList.length && <tr><td colSpan={6} style={{ textAlign: "center", padding: 24, color: "var(--text-label)" }}>No login sessions recorded</td></tr>}
+              {!filteredLogins.length && <tr><td colSpan={6} style={{ textAlign: "center", padding: 24, color: "var(--text-label)" }}>No login sessions found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -2462,7 +3070,7 @@ function Usrs({ user, N, isLight }) {
             <Fld label="Email"><input className="inp" type="email" value={f.email || ""} onChange={e => setF(x => ({ ...x, email: e.target.value }))} /></Fld>
             {m === "add" && <Fld label="Password"><input className="inp" type="password" value={f.password || ""} onChange={e => setF(x => ({ ...x, password: e.target.value }))} /></Fld>}
             <Fld label="Role"><select className="inp" value={f.role || "Teacher"} onChange={e => setF(x => ({ ...x, role: e.target.value }))}>
-              {["Admin", "Teacher", "Student", "Parent"].map(r => <option key={r}>{r}</option>)}
+              {(user.role === "Super Admin" ? ["Super Admin", "Admin", "Teacher", "Student", "Parent"] : ["Admin", "Teacher", "Student", "Parent"]).map(r => <option key={r}>{r}</option>)}
             </select></Fld>
           </div>
           <SaveCancel onSave={save} onCancel={() => setM(null)} label={m === "add" ? "Create User" : "Save Changes"} saving={saving} />
